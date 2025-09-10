@@ -6,15 +6,12 @@ The primary goal is to **send frames from a PC to the FPGA over TCP, run them th
 
 **Status by version**
 - **V1 – Header → DDR → TCP (2-frame test): _Completed_**  
-  *For V1 verification, we also exercised a teammate’s **Bicubic image IP** to sanity-check AXI4-Stream formatting and end-to-end flow.* See: **[Bicubic IP (GitHub)][bicubic_ip]**.
 - **V2 – TCP RX → DDR → TCP TX (loopback): _In progress_**
 - **V3 – TCP RX → DDR → (optional DMA→AXIS IP→DDR) → TCP TX (7,220 frames): _In progress_**
 
-### Minimal dataflow
+### System Architecture
 ```
-PC ──TCP──> PS(DDR) ──MM2S DMA──> AXI4-Stream IP ──S2MM DMA──> PS(DDR) ──TCP──> PC
-^ ^
-|---------------------- DDR Buffers ---------------------|
+
 ```
 
 ## 2) Repository Structure
@@ -22,7 +19,7 @@ PC ──TCP──> PS(DDR) ──MM2S DMA──> AXI4-Stream IP ──S2MM DMA�
 Ethernet_TCP_Verification/
 │── v1_Header_Test_workspace /
 │ ├── src  # for vitis application project
-│ └── scripts  # python scripts for RAW API
+│ └── scripts  # python scripts
 ```
 
 ---
