@@ -46,7 +46,6 @@ Ethernet_TCP_Verification/
 - **Input Ring Buffer (10 slots)**:  
   Incoming frames are stored in 10 rotating DDR buffers.  
   Once a frame is fully received, it is marked as ready for processing.  
-  A circular index (`cur_in`) manages the write position.
 
 - **Processing**:  
   When the PL is idle, the next ready input buffer is **peeked**.  
