@@ -19,7 +19,16 @@ The primary goal is to **send frames from a PC to the FPGA over TCP, run them th
 Ethernet_TCP_Verification/
 │── v1_Header_Test_workspace /
 │ ├── src  # for vitis application project
-│ └── scripts  # python scripts
+│ ├── scripts  # python scripts
+│ └── ...
+│── v2_LoopBack_workspace /
+│ ├── src
+│ └── scripts
+└── scriptsv3_Video_Streaming_workspace /
+  ├── src
+  ├── scripts
+  └── ...
+
 ```
 
 ---
@@ -30,6 +39,43 @@ Ethernet_TCP_Verification/
 - **FPGA – PL**: **AXI4-Stream image IP** (e.g., FSRCNN layer, color converter, *Bicubic*).  
 - **Dataflow**: `PC → TCP → PS(DDR) → DMA(MM2S) → AXIS IP → DMA(S2MM) → PS(DDR) → TCP → PC`
 
+📌 `docs/ethernet_system_architecture.png`  
+![System Architecture](docs/ethernet_system_architecture.png)
+
+---
+
+### DDR Buffering Strategy
+
+- **Input Ring Buffer (10 slots)**:  
+  Incoming frames are stored in 10 rotating DDR buffers.  
+  Once a frame is fully received, it is marked as ready for processing.  
+  A circular index (`cur_in`) manages the write position.
+
+- **Processing**:  
+  When the PL is idle, the next ready input buffer is **peeked**.  
+  The frame is transferred to the PL using AXI DMA (MM2S), and the result is stored back into DDR using AXI DMA (S2MM).  
+  After processing, the input buffer is **popped** and marked as available again.
+
+- **Output Buffer (2 slots)**:  
+  Processed frames are stored in one of two output buffers.  
+  A circular index (`cur_out`) is used to alternate between them.  
+  Once the frame is ready and cache-invalidated, it is transmitted back to the PC over TCP.
+
+---
+
+### Input/Output Example
+
+### 📥 Input Frame (Low-resolution BGR24)
+- Resolution: `320x180`, 3 bytes/pixel  
+📁 `docs/dog_lr_x4.bmp`  
+![Input Frame (BGR24)](docs/dog_lr_x4.bmp)
+
+### 📤 Output Frame (Upscaled ABGR32 via Bicubic IP)
+- Resolution: `1280x720`, 4 bytes/pixel  
+📁 `docs/bicubic_output_frame1_opague.png`  
+![Output Frame (ABGR32)](docs/bicubic_output_frame1_opague.png)
+- **Note**: To sanity-check AXI4-Stream formatting in the full loop, we additionally exercised a teammate’s **Bicubic IP** in a controlled path. See **[Bicubic IP (GitHub)][[bicubic_ip](https://github.com/youngyang00/axi4s-bicubic-upscaler)]**.
+
 ---
 
 ## 4) Versions
@@ -37,28 +83,24 @@ Ethernet_TCP_Verification/
 ### V1 — Header-Based Transmission (2 frames) — ✅ Completed
 - **Flow**: `.h` (pre-loaded) → DDR → TCP → PC  
 - **Goal**: Verify **TX path**, DDR→TCP send pipeline, and cache/flush discipline.  
-- **Note**: To sanity-check AXI4-Stream formatting in the full loop, we additionally exercised a teammate’s **Bicubic IP** in a controlled path. See **[Bicubic IP (GitHub)][[bicubic_ip](https://github.com/youngyang00/axi4s-bicubic-upscaler)]**.
+
 
 ### V2 — Ethernet Loopback via DDR — 🚧 In Progress
-- **Flow**: TCP RX → DDR → TCP TX → PC  
-- **Goal**: Validate **both RX/TX paths** with DDR buffering.
+- **Flow**: `TCP RX → DDR → TCP TX → PC`
+- **Behavior**: Each frame received from the PC is stored in a 10-slot ring buffer, then immediately sent back using a 2-slot TX buffer. No AXI4-Stream IP is involved.
+- **Client**: Half-duplex (send one frame → receive one frame)
+- **Goal**: Verify DDR buffering, flush/invalidate handling, and TCP TX/RX path without PL involvement.
+
 
 ### V3 — Long Video Streaming (7,220 frames) — 🚧 In Progress
-- **Flow**: TCP RX → DDR → (optional DMA→AXIS IP→DDR) → TCP TX → PC  
-- **Goal**: Stress-test **continuous high-frame-count streaming** and run **pixel-wise** checks with the IP in the loop.
+- **Flow**: `TCP RX → DDR → (DMA → AXIS IP → DMA) → DDR → TCP TX → PC`
+- **Behavior**: Frames are continuously streamed into DDR, optionally processed by AXI4-Stream IP, and sent back. Input uses a 10-slot ring buffer; output uses 2-slot TX buffer.
+- **Client**: Full-duplex multithreaded (parallel send/receive)
+- **Goal**: Stress-test full pipeline under sustained load and validate pixel-accurate output from the IP.
 
 ---
 
-## 5) Data Format
-- **Input**: BGR24 (`W×H×3`)  
-- **Output**: ABGR32 (`W×H×4`)  
-- **Chunk size**: 1460 bytes (MTU-friendly)  
-- **HEX dump baseline**: `AABBGGRR` per pixel  
-- **Buffers**: 64-byte aligned with explicit flush/invalidate around DMA ops
-
----
-
-## 6) Build & Run
+## 5) Build & Run
 
 ### Hardware (Vivado)
 - Block Design: PS (DDR) ↔ **AXI DMA (MM2S/S2MM)** ↔ **AXI4-Stream IP**  
@@ -75,8 +117,8 @@ Ethernet_TCP_Verification/
 python scripts/ethernet.py
 
 # V2: Loopback test
-python scripts/
+python scripts/ethernet_frame_by_frame.py
 
 # V3: Long video streaming
-python scripts/
+python scripts/ethernet_video.py
 # Defaults: IP=192.168.1.20, port=6001, chunk=1460, fps=60
