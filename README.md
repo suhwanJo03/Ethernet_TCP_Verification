@@ -5,14 +5,11 @@ This repository provides a **verification environment that integrates AXI4-Strea
 The primary goal is to **send frames from a PC to the FPGA over TCP, run them through AXI DMA ↔ AXI4-Stream IP, bring results back over TCP, and verify outputs at the pixel level in Python**.
 
 **Status by version**
-- **V1 – Header → DDR → TCP (2-frame test): _Completed_**  
-- **V2 – TCP RX → DDR → TCP TX (loopback): _In progress_**
-- **V3 – TCP RX → DDR → (optional DMA→AXIS IP→DDR) → TCP TX (7,220 frames): _In progress_**
+- **V1 – Header → DDR → TCP (2-frame test)**  
+- **V2 – TCP RX → DDR → TCP TX (loopback)**
+- **V3 – TCP RX → DDR → (optional DMA→AXIS IP→DDR) → TCP TX (7,220 frames)**
 
-### System Architecture
-```
-
-```
+---
 
 ## 2) Repository Structure
 ```
